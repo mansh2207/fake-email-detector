@@ -76,7 +76,9 @@
   <label title="Optional: Raw headers give insight into sender verification, SPF/DKIM, etc.">Email Header (optional):</label>
   <textarea id="headerInput" placeholder="Paste raw email header here..."></textarea>
 
-  <button title="Analyze the email content and header for phishing signs." onclick="analyzeEmail()">Scan Email</button>
+  <button id="scanBtn" title="Analyze the email content and header for phishing signs." onclick="analyzeEmail()">Scan Email</button>
+<button onclick="resetForm()" style="margin-left: 10px; background: #777;">Reset</button>
+
 
   <div id="scoreBar"><div id="scoreFill"></div></div>
 
@@ -90,6 +92,9 @@
 
   <script>
     function analyzeEmail() {
+      document.getElementById("scanBtn").disabled = true;
+      document.getElementById("scanBtn").innerText = "Scanning...";
+
       const email = document.getElementById("emailInput").value.toLowerCase();
       const header = document.getElementById("headerInput").value.toLowerCase();
 
@@ -105,7 +110,8 @@
         if (count > 0) {
           matchCount += count;
           risk += count * 1;
-          issues.push(`<li>⚠️ <span title="Common phishing keyword that pressures action">${word}</span> found ${count} time(s)</li>`);
+          issues.push(`<li>⚠️ <span title="This word is often used in phishing emails to create urgency or fear. It may be harmless in this context, but caution is advised if the email asks for login, personal details, or contains suspicious links.">${word}</span> found ${count} time(s)</li>`);
+
         }
       });
 
@@ -113,7 +119,8 @@
         if (email.includes(domain)) {
           matchCount++;
           risk += 2;
-          issues.push(`<li>🚨 <span title="Domain closely resembles a real service but is fake">${domain}</span></li>`);
+          issues.push(`<li>🚨 <span title="This domain looks like a real service but is slightly misspelled (e.g., gmaill.com instead of gmail.com). This is a common phishing trick.">${domain}</span></li>`);
+
         }
       });
 
@@ -123,12 +130,14 @@
           if (link.includes("bit.ly") || link.includes("tinyurl")) {
             matchCount++;
             risk += 2;
-            issues.push(`<li>🔗 <span title="Shortened URLs can obscure malicious destinations">${link}</span></li>`);
+           issues.push(`<li>🔗 <span title="Shortened URLs (like bit.ly or tinyurl) can hide the real destination. Attackers often use them to trick users into clicking malicious links.">${link}</span></li>`);
+
           }
           if (!link.startsWith("https")) {
             matchCount++;
             risk += 1;
-            issues.push(`<li>⚠️ <span title="Non-secure link (HTTP) instead of HTTPS">${link}</span></li>`);
+            issues.push(`<li>⚠️ <span title="This link uses HTTP instead of HTTPS, which means it's not encrypted. Secure websites should always use HTTPS.">${link}</span></li>`);
+
           }
         });
       }
@@ -155,15 +164,16 @@
 
       if (header.length > 0) {
         if (!header.includes("spf=pass")) {
-          headerWarnings.push(`<li><span title="SPF (Sender Policy Framework) helps validate sender domain">❌ SPF check failed or missing.</span></li>`);
-          matchCount++;
-          risk += 2;
-        }
-        if (!header.includes("dkim=pass")) {
-          headerWarnings.push(`<li><span title="DKIM (DomainKeys Identified Mail) is used to verify sender’s identity">❌ DKIM check failed or missing.</span></li>`);
-          matchCount++;
-          risk += 2;
-        }
+  headerWarnings.push(`<li><span title="SPF (Sender Policy Framework) checks if the sender is authorized to send email for that domain. Failure may indicate spoofing.">❌ SPF check failed or missing.</span></li>`);
+  matchCount++;
+  risk += 2;
+}
+if (!header.includes("dkim=pass")) {
+  headerWarnings.push(`<li><span title="DKIM (DomainKeys Identified Mail) adds a digital signature to confirm the email is authentic and untampered.">❌ DKIM check failed or missing.</span></li>`);
+  matchCount++;
+  risk += 2;
+}
+
 
         const returnPath = (header.match(/return-path: <(.+?)>/) || [])[1];
         const from = (header.match(/from: (.+)/) || [])[1];
@@ -174,7 +184,8 @@
           const isTrusted = trustedDomains.some(td => returnDomain.endsWith(td));
 
           if (!from.includes(returnPath) && !isTrusted) {
-            headerWarnings.push(`<li><span title="Return-Path is where bounce messages go. If it's different from the From address and not a known service, it could be spoofed.">⚠️ Return-Path mismatch: from ${from}, return-path ${returnPath}</span></li>`);
+            headerWarnings.push(`<li><span title="Return-Path is the actual sender email used by servers. If it doesn’t match the 'From' address and is not a trusted service, it may be spoofed.">⚠️ Return-Path mismatch: from ${from}, return-path ${returnPath}</span></li>`);
+
             matchCount++;
             risk += 1;
           }
@@ -184,7 +195,19 @@
       headerDiv.innerHTML = headerWarnings.length > 0
         ? `<strong>Header Warnings:</strong><ul>${headerWarnings.join('')}</ul>`
         : '';
+        document.getElementById("scanBtn").disabled = false;
+        document.getElementById("scanBtn").innerText = "Scan Email";
+
     }
+    function resetForm() {
+  document.getElementById("emailInput").value = "";
+  document.getElementById("headerInput").value = "";
+  document.getElementById("result").innerHTML = "";
+  document.getElementById("headerResult").innerHTML = "";
+  document.getElementById("scoreFill").style.width = "0%";
+  document.getElementById("scoreFill").style.background = "green";
+}
+
   </script>
 </body>
 </html>
